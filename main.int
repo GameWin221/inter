@@ -1,5 +1,6 @@
 global {
     import std_io;
+    import std_convert;
 
     real a = 3.1415926;
     string my_name = "Mateusz";
@@ -7,6 +8,7 @@ global {
     bool state = false;
 }
 
+# Add comment test #
 real add(real a, real b) {
     ret a + b;
 }
@@ -18,11 +20,16 @@ func say_hello() {
 int main() {
     say_hello();
 
-    real sum = add(8.3, 1.7);
+    print("Whats is your name?\n");
 
-    sum += 2.0;
+    string name = input();
 
-    if (sum > 10.0) {
-        print("Sum is over 10.0!\n");
-    }
+    print("How old are you?\n");
+
+    int age = stoi(input());
+
+    print("Hello " + name + "!\n");
+    print("You're " + itos(age) + " years old!\n");
+
+    
 }

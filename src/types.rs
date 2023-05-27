@@ -2,7 +2,7 @@
 pub enum Keyword {
     If,
     Else,
-    Loop,
+    While,
     Return,
     Import,
     Global,
@@ -15,6 +15,12 @@ pub enum Operator {
     Mul,
     Div,
     Eq,
+
+    Ref,
+    Hash,
+
+    Less,
+    Greater,
 
     ScOpen,
     ScClose,
@@ -65,7 +71,7 @@ pub fn to_keyword(s: &str) -> Option<Keyword> {
     match s {
        "if" => Some(Keyword::If),
        "else" => Some(Keyword::Else),
-       "loop" => Some(Keyword::Loop),
+       "while" => Some(Keyword::While),
        "ret" => Some(Keyword::Return),
        "import" => Some(Keyword::Import),
        "global" => Some(Keyword::Global),
@@ -84,6 +90,10 @@ pub fn to_operator(c: char) -> Option<Operator> {
        '*' => Some(Operator::Mul),
        '/' => Some(Operator::Div),
        '=' => Some(Operator::Eq),
+       '&' => Some(Operator::Ref),
+       '#' => Some(Operator::Hash),
+       '<' => Some(Operator::Less),
+       '>' => Some(Operator::Greater),
        '{' => Some(Operator::ScOpen),
        '}' => Some(Operator::ScClose),
        '(' => Some(Operator::BrOpen),
@@ -146,7 +156,7 @@ pub fn translate_key(key: &Keyword) -> String {
         Keyword::Else => String::from("else "),
         Keyword::If => String::from("if "),
         Keyword::Return => String::from("return "),
-        Keyword::Loop => String::from("while "),
+        Keyword::While => String::from("while "),
         Keyword::Import => String::from(""),
         Keyword::Global => String::from(""),
     }
@@ -159,6 +169,12 @@ pub fn translate_operator(op: &Operator) -> String {
         Operator::Mul => String::from("*"),
         Operator::Div => String::from("/"),
         Operator::Eq => String::from("="),
+
+        Operator::Ref => String::from("&"),
+        Operator::Hash => String::from("#"),
+
+        Operator::Less => String::from("<"),
+        Operator::Greater => String::from(">"),
 
         Operator::ScOpen => String::from("{\n"),
         Operator::ScClose => String::from("}\n\n"),

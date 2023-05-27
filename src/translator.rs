@@ -55,6 +55,7 @@ pub fn translate_file(functions: &HashMap<String, Function>, globals: &Vec<Token
     buffer.push_str("/* ===STD=== */\n");
     buffer.push_str("#include <string>\n");
     buffer.push_str("#include <vector>\n");
+    buffer.push_str("#define _std_inter_main main\n");
 
     buffer.push_str("\n/* ===GLOBALS=== */\n");
 
