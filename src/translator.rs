@@ -7,75 +7,12 @@ use std::{
 
 use crate::{
     parser::{Function, FnParam}, 
-    lexer::{Token, DataType, Type, Keyword, Operator},
+    types::*,
     INTERMEDIATE_FILE_NAME
 };
 
-fn translate_data(data: &DataType) -> String {
-    match data {
-        DataType::Real(val) => val.to_string(),
-        DataType::Int(val) => val.to_string(),
-        DataType::String(val) => val.to_owned(), 
-        DataType::Bool(val) => val.to_string(),
-        DataType::Func() => String::from(" "),
-    }
-}
-
-fn translate_type(typename: &Type) -> String {
-    match typename {
-        Type::Real => String::from("float "),
-        Type::Int => String::from("int "),
-        Type::String => String::from("std::string "), 
-        Type::Bool => String::from("bool "),
-        Type::Func => String::from("void "),
-    }
-}
-
-fn translate_key(key: &Keyword) -> String {
-    match key {
-        Keyword::Else => String::from("else "),
-        Keyword::If => String::from("if "),
-        Keyword::Return => String::from("return "),
-        Keyword::Loop => String::from("while "),
-        Keyword::Import => String::from(""),
-        Keyword::Global => String::from(""),
-    }
-}
-
-fn translate_operator(op: &Operator) -> String {
-    match op {
-        Operator::Add => String::from("+"),
-        Operator::Sub => String::from("-"),
-        Operator::Mul => String::from("*"),
-        Operator::Div => String::from("/"),
-        Operator::Eq => String::from("="),
-
-        Operator::ScOpen => String::from("{\n"),
-        Operator::ScClose => String::from("}\n\n"),
-
-        Operator::BrOpen => String::from("("),
-        Operator::BrClose => String::from(")"),
-
-        Operator::Quote => String::from("\""),
-        Operator::Comma => String::from(","),
-        Operator::Dot => String::from("."),
-
-        Operator::EOL => String::from(";\n"),
-    }
-}
-
-fn translate_token(token: &Token) -> String {
-    match token {
-        Token::Data(val) => translate_data(val),
-        Token::Id(val) => val.to_owned(),
-        Token::Key(val) => translate_key(val),
-        Token::Op(val) => translate_operator(val),
-        Token::Type(val) => translate_type(val),
-    }
-}
-
 fn translate_func_declaration(function: &Function) -> String {
-    let mut buffer = String::with_capacity(64);
+    let mut buffer = String::with_capacity(32);
 
     buffer.push_str(translate_type(&function.return_type).as_str());
     buffer.push_str(function.name.as_str());
@@ -96,7 +33,7 @@ fn translate_func_declaration(function: &Function) -> String {
 }
 
 fn translate_func_definition(function: &Function) -> String {
-    let mut buffer = String::with_capacity(256);
+    let mut buffer = String::with_capacity(64);
 
     buffer.push_str(&translate_func_declaration(function));
     buffer.push_str(&translate_operator(&Operator::ScOpen));

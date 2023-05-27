@@ -1,4 +1,4 @@
-use crate::lexer::{Keyword, Token, Type, Operator, DataType};
+use crate::types::{Keyword, Token, Type, Operator, DataType, default_type_value};
 use core::panic;
 use std::collections::HashMap;
 
@@ -17,85 +17,94 @@ pub struct Function {
     pub content: Vec<Token>
 }
 
-pub fn parse_globals(tokens: &Vec<Token>) -> Vec<Token> {
-    if let Some(global_key_id) = tokens.iter().position(|tok| *tok == Token::Key(Keyword::Global)) {
-        if tokens[global_key_id+1] != Token::Op(Operator::ScOpen) {
-            println!("global scope opening must be a {{ - (tokens[{global_key_id}+1])");
-            return Vec::new();
-        }
+pub fn process(tokens: Vec<Token>) -> (HashMap<String, Function>, Vec<Token>) {
+    (parse_functions(&tokens), parse_globals(&tokens))
+}
 
-        let global_start = global_key_id + 2;
-        let mut global_end = global_start + 1;
+fn parse_tokens(tokens: &[Token]) -> Vec<Token> {
+    tokens.to_vec()
+}   
 
-        for i in global_start..tokens.len() {
-            if tokens[i] == Token::Op(Operator::ScClose) {
-                global_end = i;
-                break;
-            }
-        }
+fn parse_globals(tokens: &Vec<Token>) -> Vec<Token> {
+    if let Some(global_keyword_index) = tokens.iter().position(|tok| *tok == Token::Key(Keyword::Global)) {
 
-        return tokens[global_start..global_end].to_vec()
+        // The first global token must be Token::Op(Operator::ScOpen) - {
+        let global_start = tokens[global_keyword_index..global_keyword_index+2].iter().position(
+            |tok| *tok == Token::Op(Operator::ScOpen)
+        ).expect("The \"global\" region must have an opening scope!") + global_keyword_index + 1;
+
+        // The last global token must be Token::Op(Operator::ScClose) - }
+        let global_end = tokens[global_start..].iter().position(
+            |tok| *tok == Token::Op(Operator::ScClose)
+        ).expect("The \"global\" region must have a closing scope!") + global_start;
+
+        return parse_tokens(&tokens[global_start..global_end])
     } else {
         return Vec::new();
     }
 }
-pub fn parse_functions(tokens: &Vec<Token>) -> HashMap<String, Function> {
+
+fn parse_functions(tokens: &Vec<Token>) -> HashMap<String, Function> {
     let mut functions = HashMap::new();
     
     let mut function_positions = Vec::new();
-
+    
     for i in 0..tokens.len()-2 {
-        if matches!(tokens[i], Token::Type(_)) && matches!(tokens[i+1], Token::Id(_)) && matches!(tokens[i+2], Token::Op(Operator::BrOpen)) {
-            function_positions.push(i);
+        if matches!(tokens[i], Token::Type(_)) {
+            if matches!(tokens[i+1], Token::Id(_)) && matches!(tokens[i+2], Token::Op(Operator::BrOpen)) {
+                function_positions.push(i);
+            }
         }
     }
 
     for position in function_positions {
-        let mut fn_start = 0;
-        let mut fn_end = 0;
+        let params_start = tokens[position+2..position+3].iter().position(
+            |tok| *tok == Token::Op(Operator::BrOpen)
+        ).expect("Function must have its param opening bracket!") + position + 3;
+        
+        let params_end = tokens[params_start..].iter().position(
+            |tok| *tok == Token::Op(Operator::BrClose)
+        ).expect("Function must have its param closing bracket!") + params_start;
 
-        let mut params_start = position+3;
-        let mut params_end = 0;
+        let fn_start = tokens[params_end+1..params_end+2].iter().position(
+            |tok| *tok == Token::Op(Operator::ScOpen)
+        ).expect("Function must have its opening scope!") + params_end + 2;
 
-        for i in position+2..tokens.len() {
-            if tokens[i] == Token::Op(Operator::ScOpen) {
-                fn_start = i+1;
-                break;
+        let mut fn_end = fn_start;
+
+        let return_type = match tokens[position].clone() {
+            Token::Type(typename) => typename,
+            _ => panic!("Function type must be a valid type!")
+        };
+        let name = match tokens[position+1].clone() {
+            Token::Id(id) => id,
+            _ => panic!("Function name must not be a reserved keyword or a type!")
+        };
+
+        let params_iter = tokens[params_start..params_end].iter().filter(
+            |&tok| *tok != Token::Op(Operator::Comma)
+        );
+
+        // Take pairs of tokens (param_type: &Type, param_name: &String), with offset of 1 element and step by 2 elements
+        let params = params_iter.clone().step_by(2).zip(params_iter.skip(1).step_by(2)).map(|(pt, pn)| {
+            let param_type = match pt {
+                Token::Type(typename) => typename,
+                _ => panic!("Param type must be a valid type!")
+            }; 
+
+            let param_name = match pn {
+                Token::Id(id) => id,
+                _ => panic!("Param name must not be a reserved keyword or a type!")
+            };
+
+            FnParam { 
+                typename: param_type.clone(),
+                name: param_name.clone(),
+                value: default_type_value(param_type)
             }
+        }).collect();
 
-            params_end = i;
-        }
-
-        let mut params = Vec::new();
-
-        for i in params_start..params_end {
-            if matches!(tokens[i], Token::Type(_)) {
-                let arg_type = match tokens[i].clone() {
-                    Token::Type(typename) => typename,
-                    _ => panic!("Unknown data type!")
-                };
-
-                let arg_name = match tokens[i+1].clone() {
-                    Token::Id(id) => id,
-                    _ => panic!("Unknown arg name!")
-                };
-
-                let arg_value = match arg_type {
-                    Type::Real => DataType::Real(0.0),
-                    Type::Int => DataType::Int(0),
-                    Type::String => DataType::String(String::from("")), 
-                    Type::Bool => DataType::Bool(false),
-                    Type::Func => DataType::Func(),
-                };
-
-                params.push(FnParam { 
-                    typename: arg_type,
-                    name: arg_name,
-                    value: arg_value 
-                });
-            }
-        }
-
+        // Find the first Token::Op(Operator::ScClose) that is out of the function's body (not nested inside, i.e. depth = -1)
         let mut depth = 0;
         for i in fn_start..tokens.len() {
             if tokens[i] == Token::Op(Operator::ScOpen) {
@@ -110,16 +119,7 @@ pub fn parse_functions(tokens: &Vec<Token>) -> HashMap<String, Function> {
             }
         }
 
-        let return_type = match tokens[position].clone() {
-            Token::Type(typename) => typename,
-            _ => Type::Func
-        };
-        let name = match tokens[position+1].clone() {
-            Token::Id(id) => id,
-            _ => panic!("Unknown function name!")
-        };
-
-        let content = tokens[fn_start..fn_end].to_vec();
+        let content = parse_tokens(&tokens[fn_start..fn_end]);
 
         functions.insert(name.clone(), Function { 
             return_type, 
